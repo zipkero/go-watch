@@ -1,0 +1,14 @@
+# Query String 테스트
+
+url: https://jsonplaceholder.typicode.com/posts
+method: GET
+requests: 1
+concurrency: 1
+delay: 0
+
+query_params:
+  userId: "1"
+  _limit: "3"
+
+output_file: "results_query.jsonl"
+save_response_body: true

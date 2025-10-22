@@ -15,6 +15,14 @@ type Config struct {
 	Concurrency int    `yaml:"concurrency"`
 	Delay       int    `yaml:"delay"`
 
+	// 요청 파라미터
+	QueryParams map[string]string `yaml:"query_params"`
+	Headers     map[string]string `yaml:"headers"`
+
+	// Body 설정
+	BodyType string      `yaml:"body_type"` // json, form, xml, raw
+	Body     interface{} `yaml:"body"`      // map[string]interface{} 또는 string
+
 	// 출력 설정
 	OutputFile       string `yaml:"output_file"`
 	SaveResponseBody bool   `yaml:"save_response_body"`

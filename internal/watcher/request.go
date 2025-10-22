@@ -1,11 +1,16 @@
 package watcher
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/zipkero/go-watch/internal/config"
 )
 
 type Result struct {
@@ -20,21 +25,68 @@ type Result struct {
 	ResponseBody string        `json:"response_body,omitempty"`
 }
 
-func MeasureRequestTime(url, method string, saveBody bool) *Result {
+// MeasureRequestTime HTTP 요청 후 결과값 반환
+func MeasureRequestTime(cfg *config.Config) *Result {
 	timestamp := time.Now()
 	result := &Result{
 		Timestamp: timestamp,
-		Method:    strings.ToUpper(method),
-		URL:       url,
+		Method:    strings.ToUpper(cfg.Method),
+		URL:       cfg.URL,
 	}
 
-	req, err := http.NewRequest(result.Method, url, nil)
+	// URL에 QueryParams 추가
+	requestURL := cfg.URL
+	if len(cfg.QueryParams) > 0 {
+		parsedURL, err := url.Parse(cfg.URL)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to parse URL: %w", err)
+			result.ErrorMessage = result.Error.Error()
+			return result
+		}
+
+		query := parsedURL.Query()
+		for key, value := range cfg.QueryParams {
+			query.Set(key, value)
+		}
+		parsedURL.RawQuery = query.Encode()
+		requestURL = parsedURL.String()
+		result.URL = requestURL
+	}
+
+	// Body 준비
+	var bodyReader io.Reader
+	if cfg.Body != nil {
+		bodyBytes, contentType, err := prepareBody(cfg.BodyType, cfg.Body)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to prepare body: %w", err)
+			result.ErrorMessage = result.Error.Error()
+			return result
+		}
+		bodyReader = bytes.NewReader(bodyBytes)
+
+		// Content-Type이 Headers에 없으면 자동 설정
+		if cfg.Headers == nil {
+			cfg.Headers = make(map[string]string)
+		}
+		if _, exists := cfg.Headers["Content-Type"]; !exists && contentType != "" {
+			cfg.Headers["Content-Type"] = contentType
+		}
+	}
+
+	// HTTP 요청 생성
+	req, err := http.NewRequest(result.Method, requestURL, bodyReader)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create request: %w", err)
 		result.ErrorMessage = result.Error.Error()
 		return result
 	}
 
+	// Headers 설정
+	for key, value := range cfg.Headers {
+		req.Header.Set(key, value)
+	}
+
+	// 요청 실행
 	start := time.Now()
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -52,8 +104,7 @@ func MeasureRequestTime(url, method string, saveBody bool) *Result {
 
 	result.StatusCode = resp.StatusCode
 
-	// 응답 본문 저장 (옵션)
-	if saveBody {
+	if cfg.SaveResponseBody {
 		body, err := io.ReadAll(resp.Body)
 		if err == nil {
 			result.ResponseBody = string(body)
@@ -61,4 +112,49 @@ func MeasureRequestTime(url, method string, saveBody bool) *Result {
 	}
 
 	return result
+}
+
+// prepareBody body_type 에 따라 Content-Type을 반환
+func prepareBody(bodyType string, body interface{}) ([]byte, string, error) {
+	if body == nil {
+		return nil, "", nil
+	}
+
+	switch strings.ToLower(bodyType) {
+	case "json":
+		bodyBytes, err := json.Marshal(body)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		return bodyBytes, "application/json", nil
+
+	case "form":
+		bodyMap, ok := body.(map[string]interface{})
+		if !ok {
+			return nil, "", fmt.Errorf("form body must be a map")
+		}
+
+		formData := url.Values{}
+		for key, value := range bodyMap {
+			formData.Set(key, fmt.Sprintf("%v", value))
+		}
+		return []byte(formData.Encode()), "application/x-www-form-urlencoded", nil
+
+	case "xml":
+		bodyStr, ok := body.(string)
+		if !ok {
+			return nil, "", fmt.Errorf("xml body must be a string")
+		}
+		return []byte(bodyStr), "application/xml", nil
+
+	case "raw", "":
+		bodyStr, ok := body.(string)
+		if !ok {
+			return nil, "", fmt.Errorf("raw body must be a string")
+		}
+		return []byte(bodyStr), "text/plain", nil
+
+	default:
+		return nil, "", fmt.Errorf("unsupported body type: %s", bodyType)
+	}
 }

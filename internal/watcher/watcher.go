@@ -91,7 +91,7 @@ func (w *Watcher) startPool(resultCh chan *Result, assignCount int, wg *sync.Wai
 
 	for i := 0; i < assignCount; i++ {
 		// 요청 실행
-		result := MeasureRequestTime(w.config.URL, w.config.Method, w.config.SaveResponseBody)
+		result := MeasureRequestTime(w.config)
 
 		// 콘솔 출력
 		w.print(result)
@@ -154,13 +154,13 @@ func (w *Watcher) totalPrint(results []*Result) {
 	}
 
 	fmt.Println("\n==================================================")
-	fmt.Println("📊 요청 통계")
+	fmt.Println("요청 통계")
 	fmt.Println("==================================================")
 	fmt.Printf("전체 요청: %d\n", totalRequests)
 	fmt.Printf("성공: %d\n", successCount)
 	fmt.Printf("에러: %d\n", totalErrors)
 
-	fmt.Println("\n📈 응답 시간")
+	fmt.Println("\n응답 시간")
 	fmt.Println("==================================================")
 	if successCount > 0 {
 		fmt.Printf("평균: %dms\n", avgDuration.Milliseconds())
@@ -172,7 +172,7 @@ func (w *Watcher) totalPrint(results []*Result) {
 	}
 
 	if w.config.OutputFile != "" {
-		fmt.Printf("\n💾 결과 파일: %s\n", w.config.OutputFile)
+		fmt.Printf("\n결과 파일: %s\n", w.config.OutputFile)
 	}
 	fmt.Println("==================================================")
 }

@@ -1,0 +1,23 @@
+# XML Body 예시
+
+url: https://httpbin.org/post
+method: POST
+requests: 1
+concurrency: 1
+delay: 0
+
+headers:
+  Content-Type: application/xml
+
+# XML Body
+body_type: xml
+body: |
+  <?xml version="1.0" encoding="UTF-8"?>
+  <user>
+    <name>홍길동</name>
+    <age>30</age>
+    <email>hong@example.com</email>
+  </user>
+
+output_file: "results_xml.jsonl"
+save_response_body: true

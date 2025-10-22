@@ -1,0 +1,20 @@
+# Form 데이터 예시
+
+url: https://httpbin.org/post
+method: POST
+requests: 2
+concurrency: 1
+delay: 0
+
+headers:
+  Content-Type: application/x-www-form-urlencoded
+
+# Form Body - map 형태로 작성
+body_type: form
+body:
+  username: testuser
+  password: testpass123
+  email: test@example.com
+
+output_file: "results_form.jsonl"
+save_response_body: true

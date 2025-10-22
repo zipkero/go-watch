@@ -1,0 +1,19 @@
+# JSON POST 테스트
+
+url: https://jsonplaceholder.typicode.com/posts
+method: POST
+requests: 2
+concurrency: 1
+delay: 0
+
+headers:
+  Content-Type: application/json
+
+body_type: json
+body:
+  title: "테스트 포스트"
+  body: "내용입니다"
+  userId: 1
+
+output_file: "results_post.jsonl"
+save_response_body: true
