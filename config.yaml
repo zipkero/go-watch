@@ -1,0 +1,20 @@
+# go-watch 설정 파일
+
+# 요청할 URL
+url: https://jsonplaceholder.typicode.com/posts/1
+
+# HTTP 메소드 (GET, POST, PUT, DELETE 등)
+method: GET
+
+# 총 요청 횟수
+requests: 10
+
+# 동시 실행 개수
+concurrency: 10
+
+# 요청 간 지연 시간 (초)
+delay: 2
+
+# 출력 설정
+output_file: "results.jsonl"
+save_response_body: true
