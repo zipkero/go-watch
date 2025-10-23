@@ -23,6 +23,9 @@ type Config struct {
 	BodyType string      `yaml:"body_type"` // json, form, xml, raw
 	Body     interface{} `yaml:"body"`      // map[string]interface{} 또는 string
 
+	// Pre-request Script
+	PreRequestScript string `yaml:"pre_request_script"`
+
 	// 출력 설정
 	OutputFile       string `yaml:"output_file"`
 	SaveResponseBody bool   `yaml:"save_response_body"`
