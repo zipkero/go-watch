@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zipkero/go-watch/internal/config"
+	"github.com/zipkero/go-watch/internal/script"
 )
 
 type Result struct {
@@ -26,7 +27,7 @@ type Result struct {
 }
 
 // MeasureRequestTime HTTP 요청 후 결과값 반환
-func MeasureRequestTime(cfg *config.Config) *Result {
+func MeasureRequestTime(cfg *config.Config, vars map[string]interface{}) *Result {
 	timestamp := time.Now()
 	result := &Result{
 		Timestamp: timestamp,
@@ -34,10 +35,12 @@ func MeasureRequestTime(cfg *config.Config) *Result {
 		URL:       cfg.URL,
 	}
 
+	// 템플릿 변수 치환
+	requestURL := script.ReplaceTemplates(cfg.URL, vars)
+
 	// URL에 QueryParams 추가
-	requestURL := cfg.URL
 	if len(cfg.QueryParams) > 0 {
-		parsedURL, err := url.Parse(cfg.URL)
+		parsedURL, err := url.Parse(requestURL)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to parse URL: %w", err)
 			result.ErrorMessage = result.Error.Error()
@@ -45,7 +48,8 @@ func MeasureRequestTime(cfg *config.Config) *Result {
 		}
 
 		query := parsedURL.Query()
-		for key, value := range cfg.QueryParams {
+		replacedParams := script.ReplaceTemplatesInMap(cfg.QueryParams, vars)
+		for key, value := range replacedParams {
 			query.Set(key, value)
 		}
 		parsedURL.RawQuery = query.Encode()
@@ -81,8 +85,9 @@ func MeasureRequestTime(cfg *config.Config) *Result {
 		return result
 	}
 
-	// Headers 설정
-	for key, value := range cfg.Headers {
+	// Headers 설정 (템플릿 변수 치환)
+	replacedHeaders := script.ReplaceTemplatesInMap(cfg.Headers, vars)
+	for key, value := range replacedHeaders {
 		req.Header.Set(key, value)
 	}
 

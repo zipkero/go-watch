@@ -8,17 +8,29 @@ import (
 	"time"
 
 	"github.com/zipkero/go-watch/internal/config"
+	"github.com/zipkero/go-watch/internal/script"
 )
 
 type Watcher struct {
-	config *config.Config
-	delay  time.Duration
+	config         *config.Config
+	delay          time.Duration
+	scriptExecutor *script.ScriptExecutor
 }
 
 func NewWatcher(cfg *config.Config) *Watcher {
+	executor := script.NewScriptExecutor()
+
+	// Pre-request 스크립트 실행
+	if cfg.PreRequestScript != "" {
+		if err := executor.Execute(cfg.PreRequestScript); err != nil {
+			fmt.Printf("스크립트 실행 오류: %v\n", err)
+		}
+	}
+
 	return &Watcher{
-		config: cfg,
-		delay:  time.Duration(cfg.Delay),
+		config:         cfg,
+		delay:          time.Duration(cfg.Delay),
+		scriptExecutor: executor,
 	}
 }
 
@@ -90,8 +102,8 @@ func (w *Watcher) startPool(resultCh chan *Result, assignCount int, wg *sync.Wai
 	defer wg.Done()
 
 	for i := 0; i < assignCount; i++ {
-		// 요청 실행
-		result := MeasureRequestTime(w.config)
+		// 요청 실행 (스크립트 변수 전달)
+		result := MeasureRequestTime(w.config, w.scriptExecutor.GetVars())
 
 		// 콘솔 출력
 		w.print(result)
