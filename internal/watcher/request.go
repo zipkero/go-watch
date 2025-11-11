@@ -15,15 +15,16 @@ import (
 )
 
 type Result struct {
-	Timestamp    time.Time     `json:"timestamp"`
-	Method       string        `json:"method"`
-	URL          string        `json:"url"`
-	StatusCode   int           `json:"status_code"`
-	Elapsed      time.Duration `json:"elapsed_ns"`
-	ElapsedMs    int64         `json:"elapsed_ms"`
-	Error        error         `json:"error,omitempty"`
-	ErrorMessage string        `json:"error_message,omitempty"`
-	ResponseBody string        `json:"response_body,omitempty"`
+	Timestamp     time.Time     `json:"timestamp"`
+	Method        string        `json:"method"`
+	URL           string        `json:"url"`
+	StatusCode    int           `json:"status_code"`
+	Elapsed       time.Duration `json:"elapsed_ns"`
+	ElapsedMs     int64         `json:"elapsed_ms"`
+	Error         error         `json:"error,omitempty"`
+	ErrorMessage  string        `json:"error_message,omitempty"`
+	ResponseBody  string        `json:"response_body,omitempty"`
+	ContentLength int64         `json:"content_length,omitempty"`
 }
 
 // MeasureRequestTime HTTP 요청 후 결과값 반환
@@ -109,9 +110,10 @@ func MeasureRequestTime(cfg *config.Config, vars map[string]interface{}) *Result
 
 	result.StatusCode = resp.StatusCode
 
-	if cfg.SaveResponseBody {
-		body, err := io.ReadAll(resp.Body)
-		if err == nil {
+	body, err := io.ReadAll(resp.Body)
+	if err == nil {
+		result.ContentLength = int64(len(body))
+		if cfg.SaveResponseBody {
 			result.ResponseBody = string(body)
 		}
 	}
