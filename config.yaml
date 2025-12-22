@@ -17,4 +17,5 @@ delay: 2
 
 # 출력 설정
 output_file: "results.jsonl"
+report_file: "report.md"
 save_response_body: true

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,6 +97,13 @@ func (w *Watcher) Start() {
 
 	// 최종 통계 출력
 	w.totalPrint(results)
+
+	// Markdown 리포트 생성
+	if err := w.generateMarkdownReport(results); err != nil {
+		fmt.Printf("리포트 생성 실패: %v\n", err)
+	} else if w.config.ReportFile != "" {
+		fmt.Printf("리포트 파일: %s\n", w.config.ReportFile)
+	}
 }
 
 func (w *Watcher) worker(jobCh <-chan int, resultCh chan *Result, wg *sync.WaitGroup) {
@@ -187,4 +195,109 @@ func (w *Watcher) totalPrint(results []*Result) {
 		fmt.Printf("\n결과 파일: %s\n", w.config.OutputFile)
 	}
 	fmt.Println("==================================================")
+}
+
+// generateMarkdownReport Markdown 테이블 형식의 리포트를 생성합니다
+func (w *Watcher) generateMarkdownReport(results []*Result) error {
+	if w.config.ReportFile == "" {
+		return nil
+	}
+
+	file, err := os.Create(w.config.ReportFile)
+	if err != nil {
+		return fmt.Errorf("리포트 파일 생성 실패: %w", err)
+	}
+	defer file.Close()
+
+	// 제목과 요약 정보
+	var sb strings.Builder
+	sb.WriteString("# 요청 결과 리포트\n\n")
+	sb.WriteString(fmt.Sprintf("생성 시간: %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
+
+	// 테이블 헤더
+	sb.WriteString("| # | 타임스탬프 | 메서드 | URL | 상태 코드 | 소요 시간 (ms) | 컨텐츠 길이 | 결과 |\n")
+	sb.WriteString("|---|-----------|--------|-----|----------|--------------|-------------|------|\n")
+
+	// 각 결과를 테이블 행으로 추가
+	for i, result := range results {
+		timestamp := result.Timestamp.Format("15:04:05.000")
+		status := fmt.Sprintf("%d", result.StatusCode)
+		elapsed := fmt.Sprintf("%d", result.ElapsedMs)
+		contentLength := fmt.Sprintf("%d", result.ContentLength)
+
+		// 결과 상태 (성공/에러)
+		resultStatus := "✅ 성공"
+		if result.Error != nil {
+			resultStatus = fmt.Sprintf("❌ 에러: %s", result.ErrorMessage)
+			status = "-"
+			if result.StatusCode == 0 {
+				status = "-"
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %s | %s | %s |\n",
+			i+1,
+			timestamp,
+			result.Method,
+			result.URL,
+			status,
+			elapsed,
+			contentLength,
+			resultStatus,
+		))
+	}
+
+	// 통계 요약
+	sb.WriteString("\n## 통계 요약\n\n")
+
+	totalRequests := len(results)
+	totalErrors := 0
+	totalDuration := time.Duration(0)
+	var minDuration time.Duration
+	var maxDuration time.Duration
+	successCount := 0
+
+	for _, result := range results {
+		if result.Error != nil {
+			totalErrors++
+		} else {
+			totalDuration += result.Elapsed
+			if successCount == 0 {
+				minDuration = result.Elapsed
+				maxDuration = result.Elapsed
+			} else {
+				if result.Elapsed < minDuration {
+					minDuration = result.Elapsed
+				}
+				if result.Elapsed > maxDuration {
+					maxDuration = result.Elapsed
+				}
+			}
+			successCount++
+		}
+	}
+
+	var avgDuration time.Duration
+	if successCount > 0 {
+		avgDuration = totalDuration / time.Duration(successCount)
+	}
+
+	sb.WriteString(fmt.Sprintf("- **전체 요청**: %d\n", totalRequests))
+	sb.WriteString(fmt.Sprintf("- **성공**: %d\n", successCount))
+	sb.WriteString(fmt.Sprintf("- **에러**: %d\n", totalErrors))
+
+	if successCount > 0 {
+		sb.WriteString(fmt.Sprintf("\n### 응답 시간\n\n"))
+		sb.WriteString(fmt.Sprintf("- **평균**: %dms\n", avgDuration.Milliseconds()))
+		sb.WriteString(fmt.Sprintf("- **최소**: %dms\n", minDuration.Milliseconds()))
+		sb.WriteString(fmt.Sprintf("- **최대**: %dms\n", maxDuration.Milliseconds()))
+		sb.WriteString(fmt.Sprintf("- **합계**: %dms\n", totalDuration.Milliseconds()))
+	}
+
+	// 파일에 쓰기
+	if _, err := file.WriteString(sb.String()); err != nil {
+		return fmt.Errorf("파일 쓰기 실패: %w", err)
+	}
+
+	return nil
 }

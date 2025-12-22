@@ -29,6 +29,7 @@ type Config struct {
 	// 출력 설정
 	OutputFile       string `yaml:"output_file"`
 	SaveResponseBody bool   `yaml:"save_response_body"`
+	ReportFile       string `yaml:"report_file"` // Markdown 테이블 형식의 리포트 파일
 }
 
 // LoadConfig YAML 파일을 읽어서 Config 구조체로 반환
