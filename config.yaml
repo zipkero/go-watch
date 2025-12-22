@@ -7,10 +7,10 @@ url: https://jsonplaceholder.typicode.com/posts/1
 method: GET
 
 # 총 요청 횟수
-requests: 10
+requests: 20
 
 # 동시 실행 개수
-concurrency: 10
+concurrency: 5
 
 # 요청 간 지연 시간 (초)
 delay: 2

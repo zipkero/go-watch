@@ -37,7 +37,8 @@ func NewWatcher(cfg *config.Config) *Watcher {
 func (w *Watcher) Start() {
 	var results []*Result
 	var resultsMutex sync.Mutex
-	resultCh := make(chan *Result, 100) // 결과 수집용 채널
+	resultCh := make(chan *Result, 100)        // 결과 수집용 채널
+	jobCh := make(chan int, w.config.Requests) // 작업 큐
 	var wg sync.WaitGroup
 
 	// 결과 수집 및 파일 쓰기용 고루틴
@@ -74,17 +75,16 @@ func (w *Watcher) Start() {
 		}
 	}()
 
-	// 요청 분배
-	avgRequests := w.config.Requests / w.config.Concurrency
-	remainder := w.config.Requests % w.config.Concurrency
+	// 작업 큐에 모든 요청 추가
+	for i := 0; i < w.config.Requests; i++ {
+		jobCh <- i
+	}
+	close(jobCh)
 
+	// Concurrency 개수만큼 워커 시작
 	for i := 0; i < w.config.Concurrency; i++ {
-		assignCount := avgRequests
-		if i < remainder {
-			assignCount++
-		}
 		wg.Add(1)
-		go w.startPool(resultCh, assignCount, &wg)
+		go w.worker(jobCh, resultCh, &wg)
 	}
 
 	// 모든 요청 완료 대기
@@ -98,21 +98,21 @@ func (w *Watcher) Start() {
 	w.totalPrint(results)
 }
 
-func (w *Watcher) startPool(resultCh chan *Result, assignCount int, wg *sync.WaitGroup) {
+func (w *Watcher) worker(jobCh <-chan int, resultCh chan *Result, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for i := 0; i < assignCount; i++ {
+	for range jobCh {
 		// 요청 실행 (스크립트 변수 전달)
 		result := MeasureRequestTime(w.config, w.scriptExecutor.GetVars())
 
-		// 콘솔 출력
+		// 콘솔 출력 (응답 즉시)
 		w.print(result)
 
 		// 채널로 전송 (파일 쓰기 + 통계용)
 		resultCh <- result
 
-		// 다음 요청까지 대기
-		if i < assignCount-1 {
+		// 각 워커가 독립적으로 delay 적용 (응답 시간 차이로 인해 묶음이 아님)
+		if w.delay > 0 {
 			time.Sleep(w.delay * time.Second)
 		}
 	}
